@@ -276,10 +276,11 @@
   <!-- CHARTS -->
   <div class="chart-card reveal" style="animation-delay:.18s">
     <h3>Hourly wind — sustained vs. gusts</h3>
-    <p class="sub">Today, hour by hour (mph). The gap between the lines is your gust spread. Tap or drag across the chart to read any hour.</p>
+    <p class="sub">Today, hour by hour (mph). The gap between the lines is your gust spread. Arrows along the top fly with the wind; the letters mark where it's blowing <em>from</em>. Tap or drag across the chart to read any hour.</p>
     <div class="legend">
       <span><i class="sw" style="background:#2f7dd1;"></i> Sustained</span>
       <span><i class="sw" style="background:#ef7a2c;"></i> Gusts</span>
+      <span><i class="ti ti-arrow-narrow-up" style="color:#2f7dd1;font-size:16px;"></i> Wind direction</span>
     </div>
     <div class="chart-box">
       <canvas id="windChart" role="img" aria-label="Hourly sustained wind and gusts for Oklahoma City."></canvas>
@@ -366,7 +367,13 @@ function applySky(cat, isDay){
   document.documentElement.style.setProperty('--sky-2', s[1]);
 }
 
-let windChart, dirChart;
+// color for the Sky tile icon, matched to the condition
+function condColor(cat, isDay){
+  if (cat === 'clear') return isDay ? '#f2a93b' : '#8e9bc4';
+  return ({ cloud:'#7e8c9c', rain:'#3f86c9', snow:'#74b3dc', storm:'#6a5cc4', fog:'#8a96a2' })[cat] || '#2f7dd1';
+}
+
+let windChart, dirChart, hourDir = [];
 
 // compass ticks
 (function ticks(){
@@ -409,6 +416,40 @@ const guideLine = {
       ctx.stroke();
       ctx.restore();
     }
+  }
+};
+
+// small arrow + compass label strip along the top of the wind chart
+function drawArrow(ctx, cx, cy, deg, len) {
+  const rad = deg * Math.PI / 180;
+  const dx = Math.sin(rad), dy = -Math.cos(rad);      // 0° points up (north)
+  const hx = cx + dx * len, hy = cy + dy * len;       // head
+  const tx = cx - dx * len, ty = cy - dy * len;       // tail
+  ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(hx, hy); ctx.stroke();
+  const base = Math.atan2(dy, dx), ah = 4.5;          // arrowhead barbs
+  ctx.beginPath();
+  ctx.moveTo(hx, hy); ctx.lineTo(hx - ah * Math.cos(base - 0.5), hy - ah * Math.sin(base - 0.5));
+  ctx.moveTo(hx, hy); ctx.lineTo(hx - ah * Math.cos(base + 0.5), hy - ah * Math.sin(base + 0.5));
+  ctx.stroke();
+}
+const windArrows = {
+  id: 'windArrows',
+  afterDatasetsDraw(chart) {
+    if (!hourDir || !hourDir.length) return;
+    const { ctx, chartArea: { top }, scales: { x } } = chart;
+    const labelEvery = hourDir.length > 14 ? 3 : 2;
+    ctx.save();
+    ctx.strokeStyle = '#2f7dd1'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+    hourDir.forEach((deg, i) => {
+      const px = x.getPixelForValue(i);
+      drawArrow(ctx, px, top - 14, deg + 180, 6);     // arrow flies with the wind (downwind)
+      if (i % labelEvery === 0) {
+        ctx.fillStyle = '#5b6b7d'; ctx.textAlign = 'center';
+        ctx.font = '600 10px Inter, sans-serif';
+        ctx.fillText(DIRS[Math.round(deg / 22.5) % 16], px, top - 26);
+      }
+    });
+    ctx.restore();
   }
 };
 
@@ -456,6 +497,7 @@ async function loadWeather() {
     // conditions + sky
     const [condText, condIcon, condCat] = wmo(c.weather_code, c.is_day);
     document.getElementById('condIcon').className = 'ti ti-' + condIcon;
+    document.getElementById('condIcon').style.color = condColor(condCat, c.is_day);
     document.getElementById('condText').textContent = condText;
     document.getElementById('condTemp').textContent = r(c.temperature_2m) + '°';
     document.getElementById('condFeels').textContent = 'Feels like ' + r(c.apparent_temperature) + '°';
@@ -487,6 +529,7 @@ async function loadWeather() {
     document.getElementById('mPeak').textContent = peak;
     document.getElementById('mPeakTime').textContent = 'at ' + labels[peakIdx];
 
+    hourDir = ddeg;
     drawWind(labels, spd, gust);
     drawDir(labels, ddeg);
     loadAlerts(peak);
@@ -542,13 +585,20 @@ function drawWind(labels, spd, gust) {
       { label:'Sustained', data:spd, borderColor:'#2f7dd1', backgroundColor:fill('rgba(47,125,209,0.26)','rgba(47,125,209,0)'), fill:true, tension:0.4, pointRadius:0, borderWidth:2.5, pointBackgroundColor:'#2f7dd1', pointBorderColor:'#fff' }
     ]},
     options: baseOptions({
+      layout: { padding: { top: 38 } },
       plugins: {
         legend: { display: false },
         tooltip: {
           backgroundColor: 'rgba(11,31,51,0.96)', titleColor:'#fff', bodyColor:'#fff',
           padding: 14, cornerRadius: 12, caretSize: 7, boxPadding: 4,
           titleFont: { family:'Inter', size:13, weight:'600' }, bodyFont: { family:'Inter', size:16, weight:'600' },
-          callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y} mph` }
+          callbacks: {
+            label: c => `${c.dataset.label}: ${c.parsed.y} mph`,
+            afterBody: items => {
+              const deg = hourDir[items[0].dataIndex];
+              return deg == null ? '' : 'From ' + DIRS[Math.round(deg/22.5)%16] + ' (' + deg + '°)';
+            }
+          }
         }
       },
       scales: {
@@ -556,7 +606,7 @@ function drawWind(labels, spd, gust) {
         x: { grid:{ display:false }, ticks:{ font:{family:'Inter',size:12}, color:'#5b6b7d', maxTicksLimit:12 }, border:{display:false} }
       }
     }),
-    plugins: [guideLine]
+    plugins: [guideLine, windArrows]
   });
 }
 
