@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oklahoma City Wind Watch</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.47.0/iconfont/tabler-icons.min.css">
+<style>
+  :root {
+    --navy: #0c2340;
+    --blue: #185fa5;
+    --teal: #1d9e75;
+    --amber: #ba7517;
+    --red: #a32d2d;
+    --orange: #d85a30;
+    --bg: #f4f6f9;
+    --card: #ffffff;
+    --text: #1a2433;
+    --muted: #5f6b7a;
+    --border: rgba(12,35,64,0.10);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: Arial, Helvetica, sans-serif;
+    background: var(--bg); color: var(--text); padding: 2rem 1rem;
+  }
+  .wrap { max-width: 820px; margin: 0 auto; }
+  .topbar { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .title { font-size: 20px; font-weight: 700; color: var(--navy); display: flex; align-items: center; gap: 8px; }
+  .title i { color: var(--blue); }
+  .updated { font-size: 12px; color: var(--muted); margin-left: auto; }
+  button.refresh {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--navy); color: #fff; border: none;
+    border-radius: 8px; padding: 8px 14px; font-size: 13px; font-weight: 700;
+    cursor: pointer; font-family: inherit;
+  }
+  button.refresh:hover { background: var(--blue); }
+  button.refresh:disabled { opacity: 0.6; cursor: default; }
+  button.refresh i.spin { animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .alert { border-radius: 10px; padding: 12px 16px; font-size: 14px; margin-bottom: 1rem; display: none; align-items: flex-start; gap: 10px; }
+  .alert i { font-size: 20px; margin-top: 1px; }
+  .alert.warn { background: #fcebeb; color: #791f1f; border: 1px solid #f09595; }
+  .alert.watch { background: #faeeda; color: #633806; border: 1px solid #fac775; }
+  .alert.calm { background: #e1f5ee; color: #085041; border: 1px solid #9fe1cb; }
+  .alert b { display: block; font-size: 14px; margin-bottom: 2px; }
+
+  .hero {
+    display: grid; grid-template-columns: 230px 1fr; gap: 20px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 1.5rem; margin-bottom: 1.25rem;
+  }
+  @media (max-width: 620px) { .hero { grid-template-columns: 1fr; } }
+  .compass-wrap { display: flex; flex-direction: column; align-items: center; }
+  .compass { width: 200px; height: 200px; }
+  .compass .read { text-align: center; margin-top: 8px; }
+  .compass .read .spd { font-size: 30px; font-weight: 700; color: var(--navy); line-height: 1; }
+  .compass .read .dir { font-size: 13px; color: var(--muted); }
+
+  .hero-right { display: flex; flex-direction: column; justify-content: center; }
+  .beaufort-badge { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: #fff; padding: 6px 14px; border-radius: 20px; align-self: flex-start; margin-bottom: 12px; }
+  .hero-right h2 { margin: 0 0 4px; font-size: 22px; color: var(--navy); }
+  .hero-right p { margin: 0 0 14px; font-size: 14px; color: var(--muted); line-height: 1.5; }
+  .mini-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .mini { background: var(--bg); border-radius: 10px; padding: 10px 12px; }
+  .mini .l { font-size: 12px; color: var(--muted); margin: 0 0 3px; }
+  .mini .v { font-size: 19px; font-weight: 700; color: var(--navy); margin: 0; }
+  .mini .s { font-size: 11px; color: var(--muted); margin: 1px 0 0; }
+
+  .chart-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 1.25rem;
+  }
+  .chart-card h3 { margin: 0 0 4px; font-size: 15px; font-weight: 700; color: var(--navy); }
+  .chart-card .sub { margin: 0 0 12px; font-size: 12px; color: var(--muted); }
+  .legend { display: flex; gap: 18px; font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i.sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .chart-box { position: relative; width: 100%; height: 240px; }
+
+  .foot { text-align: center; font-size: 12px; color: var(--muted); margin-top: 1.25rem; }
+  .err { background: #fcebeb; color: #791f1f; border: 1px solid #f09595; border-radius: 8px; padding: 10px 14px; font-size: 13px; margin-bottom: 1rem; display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="title"><i class="ti ti-wind"></i> Oklahoma City Wind Watch</div>
+    <span class="updated" id="updated">Loading…</span>
+    <button class="refresh" id="refreshBtn" onclick="loadWeather()">
+      <i class="ti ti-refresh" id="refreshIcon"></i> Refresh
+    </button>
+  </div>
+
+  <div class="err" id="err"></div>
+  <div class="alert" id="alertBox"></div>
+
+  <div class="hero">
+    <div class="compass-wrap">
+      <svg class="compass" viewBox="0 0 200 200" id="compass" role="img" aria-label="Wind direction compass">
+        <circle cx="100" cy="100" r="92" fill="#fff" stroke="rgba(12,35,64,0.12)" stroke-width="2"/>
+        <circle cx="100" cy="100" r="78" fill="none" stroke="rgba(12,35,64,0.06)" stroke-width="1"/>
+        <g font-family="Arial" font-size="13" font-weight="700" fill="#5f6b7a" text-anchor="middle">
+          <text x="100" y="26">N</text>
+          <text x="178" y="105">E</text>
+          <text x="100" y="184">S</text>
+          <text x="22" y="105">W</text>
+        </g>
+        <g id="ticks" stroke="rgba(12,35,64,0.18)" stroke-width="1"></g>
+        <g id="needle" transform="rotate(0 100 100)">
+          <polygon points="100,30 110,100 100,90 90,100" fill="#a32d2d"/>
+          <polygon points="100,170 110,100 100,110 90,100" fill="#185fa5"/>
+        </g>
+        <circle cx="100" cy="100" r="6" fill="var(--navy)"/>
+      </svg>
+      <div class="read">
+        <div class="spd" id="cSpeed">—</div>
+        <div class="dir" id="cDir">wind from —</div>
+      </div>
+    </div>
+
+    <div class="hero-right">
+      <span class="beaufort-badge" id="beaufortBadge" style="background:#5f6b7a;">— · —</span>
+      <h2 id="beaufortName">—</h2>
+      <p id="beaufortDesc">Pulling live wind data…</p>
+      <div class="mini-grid">
+        <div class="mini">
+          <p class="l">Gusts now</p>
+          <p class="v" id="mGust">—</p>
+        </div>
+        <div class="mini">
+          <p class="l">Peak gust today</p>
+          <p class="v" id="mPeak">—</p>
+          <p class="s" id="mPeakTime">—</p>
+        </div>
+        <div class="mini">
+          <p class="l">Direction</p>
+          <p class="v" id="mDir">—</p>
+          <p class="s" id="mDeg">—</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <h3>Hourly wind: sustained vs. gusts (mph)</h3>
+    <p class="sub">Today, hour by hour. The gap between the two lines is your gust spread.</p>
+    <div class="legend">
+      <span><i class="sw" style="background:#185fa5;"></i> Sustained wind</span>
+      <span><i class="sw" style="background:#d85a30;"></i> Gusts</span>
+    </div>
+    <div class="chart-box">
+      <canvas id="windChart" role="img" aria-label="Hourly sustained wind and gusts for Oklahoma City."></canvas>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <h3>Where the wind is coming from</h3>
+    <p class="sub">Direction by hour (degrees). Flat line = steady direction; jumps = shifting/veering winds.</p>
+    <div class="chart-box" style="height:180px;">
+      <canvas id="dirChart" role="img" aria-label="Hourly wind direction for Oklahoma City."></canvas>
+    </div>
+  </div>
+
+  <p class="foot">Live wind from Open-Meteo &middot; advisories from the U.S. National Weather Service &middot; Oklahoma City (35.47, -97.52)</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const LAT = 35.468, LON = -97.516;
+const API = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}`
+  + `&current=wind_speed_10m,wind_gusts_10m,wind_direction_10m`
+  + `&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m`
+  + `&wind_speed_unit=mph&timezone=auto`;
+const ALERTS = `https://api.weather.gov/alerts/active?point=${LAT},${LON}`;
+
+const DIRS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+const r = x => Math.round(x);
+const dir = d => DIRS[Math.round(d/22.5) % 16];
+
+const BEAUFORT = [
+  [1,'Calm','#5f6b7a','Air is still. Smoke rises straight up.'],
+  [3,'Light air','#5dcaa5','Barely perceptible. Smoke drifts slightly.'],
+  [7,'Light breeze','#1d9e75','Wind felt on the face; leaves rustle.'],
+  [12,'Gentle breeze','#378add','Leaves and small twigs in constant motion.'],
+  [18,'Moderate breeze','#185fa5','Raises dust and loose paper; small branches move.'],
+  [24,'Fresh breeze','#ba7517','Small trees sway; whitecaps form on water.'],
+  [31,'Strong breeze','#d85a30','Large branches move; umbrellas hard to use.'],
+  [38,'Near gale','#cc4a25','Whole trees in motion; walking into wind is difficult.'],
+  [46,'Gale','#a32d2d','Twigs break off trees; cars veer on the road.'],
+  [54,'Strong gale','#911f1f','Slight structural damage; shingles may blow off.'],
+  [63,'Storm','#791f1f','Trees uprooted; considerable structural damage.'],
+  [72,'Violent storm','#601313','Widespread damage, rarely experienced inland.'],
+  [999,'Hurricane force','#400c0c','Devastating. Take shelter immediately.']
+];
+function beaufort(mph){ for(let i=0;i<BEAUFORT.length;i++){ if(mph<=BEAUFORT[i][0]) return [i,...BEAUFORT[i].slice(1)]; } }
+
+let windChart, dirChart;
+
+(function ticks(){
+  let g = document.getElementById('ticks'), s = '';
+  for(let a=0;a<360;a+=30){ const rad=(a-90)*Math.PI/180;
+    const x1=100+82*Math.cos(rad), y1=100+82*Math.sin(rad);
+    const x2=100+90*Math.cos(rad), y2=100+90*Math.sin(rad);
+    s += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`; }
+  g.innerHTML = s;
+})();
+
+async function loadWeather() {
+  const btn = document.getElementById('refreshBtn'), icon = document.getElementById('refreshIcon'), err = document.getElementById('err');
+  btn.disabled = true; icon.classList.add('spin'); err.style.display = 'none';
+  try {
+    const d = await (await fetch(API)).json();
+    const c = d.current;
+
+    document.getElementById('needle').setAttribute('transform', `rotate(${c.wind_direction_10m} 100 100)`);
+    document.getElementById('cSpeed').textContent = r(c.wind_speed_10m) + ' mph';
+    document.getElementById('cDir').textContent = 'wind from ' + dir(c.wind_direction_10m);
+
+    const [bi, bname, bcolor, bdesc] = beaufort(c.wind_speed_10m);
+    const badge = document.getElementById('beaufortBadge');
+    badge.style.background = bcolor;
+    badge.textContent = 'Beaufort ' + bi + ' · ' + bname;
+    document.getElementById('beaufortName').textContent = bname;
+    document.getElementById('beaufortDesc').textContent = bdesc;
+
+    document.getElementById('mGust').textContent = r(c.wind_gusts_10m) + ' mph';
+    document.getElementById('mDir').textContent = dir(c.wind_direction_10m);
+    document.getElementById('mDeg').textContent = r(c.wind_direction_10m) + '°';
+
+    const today = c.time.slice(0,10);
+    const labels=[], spd=[], gust=[], ddeg=[];
+    d.hourly.time.forEach((t,i) => {
+      if (t.slice(0,10) === today) {
+        labels.push(new Date(t).toLocaleTimeString([], {hour:'numeric'}));
+        spd.push(r(d.hourly.wind_speed_10m[i]));
+        gust.push(r(d.hourly.wind_gusts_10m[i]));
+        ddeg.push(r(d.hourly.wind_direction_10m[i]));
+      }
+    });
+    let peak=0, peakIdx=0;
+    gust.forEach((g,i)=>{ if(g>peak){peak=g;peakIdx=i;} });
+    document.getElementById('mPeak').textContent = peak + ' mph';
+    document.getElementById('mPeakTime').textContent = 'at ' + labels[peakIdx];
+
+    drawWind(labels, spd, gust);
+    drawDir(labels, ddeg);
+    loadAlerts(peak);
+
+    document.getElementById('updated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+  } catch (e) {
+    err.textContent = 'Could not load wind data: ' + e.message; err.style.display = 'block';
+  } finally { btn.disabled = false; icon.classList.remove('spin'); }
+}
+
+async function loadAlerts(peakGust) {
+  const box = document.getElementById('alertBox');
+  try {
+    const res = await fetch(ALERTS, { headers: { 'Accept': 'application/geo+json' } });
+    const data = await res.json();
+    const windAlerts = (data.features || []).filter(f => {
+      const e = (f.properties.event || '').toLowerCase();
+      return e.includes('wind') || e.includes('gale') || e.includes('storm') || e.includes('hurricane') || e.includes('tornado') || e.includes('dust');
+    });
+    if (windAlerts.length) {
+      const a = windAlerts[0].properties;
+      box.className = 'alert warn'; box.style.display = 'flex';
+      box.innerHTML = `<i class="ti ti-alert-triangle"></i><div><b>${a.event} — ${a.severity}</b>${a.headline || a.description.slice(0,180)}</div>`;
+      return;
+    }
+  } catch (e) { /* fall through to derived advisory */ }
+
+  if (peakGust >= 58) { box.className='alert warn'; box.style.display='flex';
+    box.innerHTML = `<i class="ti ti-alert-triangle"></i><div><b>Damaging gusts possible</b>Peak gusts near ${peakGust} mph today. Secure loose objects; high-profile vehicles use caution.</div>`;
+  } else if (peakGust >= 40) { box.className='alert watch'; box.style.display='flex';
+    box.innerHTML = `<i class="ti ti-wind"></i><div><b>Breezy to windy</b>Gusts up to ${peakGust} mph today. No official advisory in effect.</div>`;
+  } else { box.className='alert calm'; box.style.display='flex';
+    box.innerHTML = `<i class="ti ti-circle-check"></i><div><b>No wind concerns</b>Gusts stay below 40 mph today and no advisories are active.</div>`;
+  }
+}
+
+function drawWind(labels, spd, gust) {
+  if (windChart) { windChart.data.labels=labels; windChart.data.datasets[0].data=gust; windChart.data.datasets[1].data=spd; windChart.update(); return; }
+  windChart = new Chart(document.getElementById('windChart'), {
+    type: 'line',
+    data: { labels, datasets: [
+      { label:'Gusts', data:gust, borderColor:'#d85a30', backgroundColor:'rgba(216,90,48,0.10)', fill:true, tension:0.35, pointRadius:0, borderWidth:2 },
+      { label:'Sustained', data:spd, borderColor:'#185fa5', backgroundColor:'rgba(24,95,165,0.10)', fill:true, tension:0.35, pointRadius:0, borderWidth:2 }
+    ]},
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales:{ y:{ beginAtZero:true, ticks:{callback:v=>v+''}, grid:{color:'rgba(12,35,64,0.08)'} }, x:{ grid:{display:false}, ticks:{maxTicksLimit:12} } } }
+  });
+}
+
+function drawDir(labels, deg) {
+  if (dirChart) { dirChart.data.labels=labels; dirChart.data.datasets[0].data=deg; dirChart.update(); return; }
+  dirChart = new Chart(document.getElementById('dirChart'), {
+    type: 'line',
+    data: { labels, datasets: [
+      { label:'Direction', data:deg, borderColor:'#1d9e75', backgroundColor:'#1d9e75', showLine:false, pointRadius:4 }
+    ]},
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:c=>DIRS[Math.round(c.parsed.y/22.5)%16]+' ('+c.parsed.y+'°)'}}},
+      scales:{ y:{ min:0, max:360, ticks:{stepSize:90, callback:v=>({0:'N',90:'E',180:'S',270:'W',360:'N'}[v]||v)}, grid:{color:'rgba(12,35,64,0.08)'} }, x:{ grid:{display:false}, ticks:{maxTicksLimit:12} } } }
+  });
+}
+
+loadWeather();
+</script>
+</body>
+</html>
