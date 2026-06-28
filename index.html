@@ -122,6 +122,9 @@
   .big .num { font-size: clamp(68px, 13vw, 104px); font-weight: 600; letter-spacing: -0.02em; }
   .big .unit { font-size: 24px; font-weight: 500; opacity: 0.82; }
   .from { font-size: 16px; font-weight: 500; opacity: 0.9; margin-top: 6px; letter-spacing: 0.01em; }
+  .gust-pill { display: inline-flex; align-items: center; gap: 8px; margin-top: 14px; padding: 8px 15px; border-radius: 999px; background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.34); font-size: 15px; font-weight: 600; backdrop-filter: blur(4px); align-self: flex-start; }
+  @media (max-width: 680px) { .gust-pill { align-self: center; } }
+  .gust-pill i { font-size: 17px; color: #ffd9a8; }
   .beaufort { display: flex; align-items: center; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
   @media (max-width: 680px) { .beaufort { justify-content: center; } }
   .beaufort-badge { display: inline-flex; align-items: center; font-size: 13px; font-weight: 700; color: #fff; padding: 7px 14px; border-radius: 999px; background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.35); backdrop-filter: blur(4px); white-space: nowrap; }
@@ -226,6 +229,7 @@
       <div class="hero-read">
         <div class="big"><span class="num display" id="cSpeed">—</span><span class="unit">mph</span></div>
         <div class="from" id="cDir">from —</div>
+        <div class="gust-pill" id="gustPill"><i class="ti ti-arrow-up-right"></i> Gusts —</div>
         <div class="beaufort">
           <span class="beaufort-badge" id="beaufortBadge">Beaufort —</span>
           <span class="beaufort-name" id="beaufortName">—</span>
@@ -484,6 +488,11 @@ async function loadWeather() {
     document.getElementById('cSpeed').textContent = r(c.wind_speed_10m);
     document.getElementById('cDir').textContent = 'from ' + dir(c.wind_direction_10m) + ' · ' + r(c.wind_direction_10m) + '°';
     document.getElementById('compassLabel').textContent = 'wind from ' + dir(c.wind_direction_10m);
+
+    const lo = r(c.wind_speed_10m), hi = r(c.wind_gusts_10m);
+    document.getElementById('gustPill').innerHTML = hi > lo
+      ? `<i class="ti ti-arrow-up-right"></i> Gusting ${lo}–${hi} mph`
+      : `<i class="ti ti-arrow-up-right"></i> Gusts to ${hi} mph`;
 
     // wind streak speed scales with wind
     const dur = Math.max(2.4, 13 - c.wind_speed_10m * 0.28).toFixed(1);
