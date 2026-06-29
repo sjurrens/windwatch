@@ -574,7 +574,7 @@ function deriveCondition(w) {
   if (cloud >= 88) return { label:'Overcast', icon:'cloud', cat:'cloud' };
   if (cloud >= 60) return { label:'Mostly cloudy', icon:'cloud', cat:'cloud' };
   if (cloud >= 25) return { label:'Partly cloudy', icon:'cloud', cat:'clear' };
-  return { label: isDay ? 'Clear sky' : 'Clear', icon: isDay ? 'sun' : 'moon', cat:'clear' };
+  return { label: isDay ? 'Sunny' : 'Clear', icon: isDay ? 'sun' : 'moon', cat:'clear' };
 }
 
 // ---------- saved places (localStorage), tabs, search, geolocation ----------
