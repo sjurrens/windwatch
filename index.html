@@ -440,7 +440,15 @@ function buildAPI(lat, lon) {
     + `&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,cloud_cover,precipitation,is_day,wind_speed_10m,wind_gusts_10m,wind_direction_10m`
     + `&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code,cloud_cover,precipitation,is_day`
     + `&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset`
-    + `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto`;
+    + `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto`
+    + `&models=best_match&cell_selection=land`;   // highest-resolution model, nearest land cell matching elevation
+}
+// distance (km) between two lat/lon points — used to show how close the model grid cell is
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371, toR = x => x * Math.PI / 180;
+  const dLat = toR(lat2 - lat1), dLon = toR(lon2 - lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toR(lat1)) * Math.cos(toR(lat2)) * Math.sin(dLon/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(a));
 }
 const buildAlerts = (lat, lon) => `https://api.weather.gov/alerts/active?point=${lat},${lon}`;
 const escapeHtml = s => (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -985,8 +993,12 @@ async function loadWeather() {
     }
     applySky(condCat, c.is_day);
     if (d.daily && d.daily.sunrise) renderSky(c, d.daily, condCat);
+    // show the actual model grid cell used + how close it is to the requested point
+    const distKm = haversineKm(place.lat, place.lon, d.latitude, d.longitude);
+    const distTxt = distKm < 1 ? Math.round(distKm * 1000) + ' m' : distKm.toFixed(1) + ' km';
     document.getElementById('footLoc').textContent =
-      `${place.geo ? 'My Location' : place.name} (${(+place.lat).toFixed(2)}, ${(+place.lon).toFixed(2)})`;
+      `${place.geo ? 'My Location' : place.name} · nearest model cell ${distTxt} away `
+      + `(${d.latitude.toFixed(3)}, ${d.longitude.toFixed(3)}, ${Math.round(d.elevation)} m) · high-resolution best-match model`;
 
     // wind tiles
     document.getElementById('mGust').textContent = r(c.wind_gusts_10m);
