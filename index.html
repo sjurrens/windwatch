@@ -11,7 +11,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.47.0/iconfont/tabler-icons.min.css">
 <style>
   :root {
     --ink: #0b1f33;
@@ -40,6 +39,11 @@
   }
   .display { font-family: 'Fraunces', Georgia, serif; font-optical-sizing: auto; }
   .wrap { max-width: 940px; margin: 0 auto; padding: 0 20px; }
+
+  /* inline SVG icons sized by the host element's font-size */
+  .ic { width: 1em; height: 1em; display: block; }
+  i.ti { display: inline-flex; align-items: center; justify-content: center; line-height: 0; vertical-align: -0.14em; }
+  i.ti.spin { animation: spin 0.8s linear infinite; }
 
   /* ---------- header ---------- */
   .header {
@@ -296,6 +300,13 @@
       <g id="stars" opacity="0"></g>
       <circle id="glow" cx="-50" cy="-50" r="70" fill="url(#sunGlow)" opacity="0"/>
       <circle id="body" cx="-50" cy="-50" r="18" fill="#fff6d8" opacity="0"/>
+      <g id="moon" transform="translate(312 62)" opacity="0">
+        <circle r="25" fill="rgba(220,228,242,0.12)"/>
+        <circle r="15" fill="#e6ecf7"/>
+        <circle cx="-5" cy="-4" r="3.2" fill="rgba(150,165,195,0.45)"/>
+        <circle cx="5" cy="3" r="2.4" fill="rgba(150,165,195,0.4)"/>
+        <circle cx="1" cy="-7" r="1.7" fill="rgba(150,165,195,0.35)"/>
+      </g>
       <g id="clouds"></g>
       <g id="precip"></g>
       <rect id="fog" x="0" y="0" width="400" height="240" fill="#cfd6db" opacity="0"/>
@@ -433,6 +444,44 @@ function buildAPI(lat, lon) {
 const buildAlerts = (lat, lon) => `https://api.weather.gov/alerts/active?point=${lat},${lon}`;
 const escapeHtml = s => (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+// ---------- self-contained inline SVG icon set (no webfont dependency) ----------
+const ICONS = {
+  'wind': '<path d="M4 8h10a3 3 0 1 0-3-3"/><path d="M4 12h14a3 3 0 1 1-3 3"/><path d="M4 16h8a2.5 2.5 0 1 1-2.5 2.5"/>',
+  'map-pin': '<path d="M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10z"/><circle cx="12" cy="11" r="2.3"/>',
+  'current-location': '<circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="8.2"/><path d="M12 1.6v2.6M12 19.8v2.6M1.6 12h2.6M19.8 12h2.6"/>',
+  'search': '<circle cx="11" cy="11" r="7"/><path d="M20.5 20.5l-4.2-4.2"/>',
+  'x': '<path d="M6 6l12 12M18 6L6 18"/>',
+  'plus': '<path d="M12 5v14M5 12h14"/>',
+  'refresh': '<path d="M4.5 12a7.5 7.5 0 0 1 12.8-5.3L20 9"/><path d="M20 4.5V9h-4.5"/><path d="M19.5 12a7.5 7.5 0 0 1-12.8 5.3L4 15"/><path d="M4 19.5V15h4.5"/>',
+  'arrow-up-right': '<path d="M7 17L17 7"/><path d="M8 7h9v9"/>',
+  'arrow-narrow-up': '<path d="M12 5v14M8.5 8.5L12 5l3.5 3.5"/>',
+  'chart-arrows-vertical': '<path d="M3 16l5-5 4 4 8-8"/><path d="M16 7h5v5"/>',
+  'compass': '<circle cx="12" cy="12" r="9"/><path d="M14.6 9.4L11 11l-1.6 3.6L13 13z" fill="currentColor" stroke="none"/>',
+  'temperature': '<path d="M10 13.5V5a2 2 0 0 1 4 0v8.5a4 4 0 1 1-4 0z"/>',
+  'droplet': '<path d="M12 3.2s6 6.4 6 10.3a6 6 0 1 1-12 0C6 9.6 12 3.2 12 3.2z"/>',
+  'sun': '<circle cx="12" cy="12" r="4"/><path d="M12 2v2.4M12 19.6V22M4.2 4.2l1.7 1.7M18.1 18.1l1.7 1.7M2 12h2.4M19.6 12H22M4.2 19.8l1.7-1.7M18.1 5.9l1.7-1.7"/>',
+  'moon': '<path d="M18 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 18 14.5z"/>',
+  'cloud': '<path d="M7 18h10a4 4 0 0 0 .4-7.98A6 6 0 0 0 5.8 9.2 4.2 4.2 0 0 0 7 18z"/>',
+  'cloud-rain': '<path d="M7 15h10a4 4 0 0 0 .4-7.98A6 6 0 0 0 5.8 6.2 4.2 4.2 0 0 0 7 15z"/><path d="M8 18l-1 2.5M12 18l-1 2.5M16 18l-1 2.5"/>',
+  'cloud-drizzle': '<path d="M7 15h10a4 4 0 0 0 .4-7.98A6 6 0 0 0 5.8 6.2 4.2 4.2 0 0 0 7 15z"/><path d="M8 18v1.6M12 18.5v1.6M16 18v1.6"/>',
+  'cloud-snow': '<path d="M7 15h10a4 4 0 0 0 .4-7.98A6 6 0 0 0 5.8 6.2 4.2 4.2 0 0 0 7 15z"/><circle cx="8" cy="19.5" r="0.9" fill="currentColor" stroke="none"/><circle cx="12" cy="20" r="0.9" fill="currentColor" stroke="none"/><circle cx="16" cy="19.5" r="0.9" fill="currentColor" stroke="none"/>',
+  'cloud-fog': '<path d="M7 13h10a4 4 0 0 0 .4-7.98A6 6 0 0 0 5.8 4.2 4.2 4.2 0 0 0 7 13z"/><path d="M5 17h14M7 21h10"/>',
+  'cloud-storm': '<path d="M7 13h10a4 4 0 0 0 .4-7.98A6 6 0 0 0 5.8 4.2 4.2 4.2 0 0 0 7 13z"/><path d="M12 14l-2.5 4.5H12L10 23"/>',
+  'alert-triangle': '<path d="M12 3.5l9 15.5H3l9-15.5z"/><path d="M12 10v4M12 17h.01"/>',
+  'circle-check': '<circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.4 2.4 5-5"/>'
+};
+function svgInner(name) {
+  const p = ICONS[name];
+  return p === undefined ? '' : `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+}
+function iconClassName(el) { for (const c of el.classList) { if (c.indexOf('ti-') === 0) return c.slice(3); } return null; }
+function hydrateIcons(root) {
+  (root || document).querySelectorAll('i.ti').forEach(el => {
+    const n = iconClassName(el);
+    if (n && ICONS[n] !== undefined) el.innerHTML = svgInner(n);
+  });
+}
+
 const DIRS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
 const ARROW_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V5"/><path d="M6 11l6-6 6 6"/></svg>';
 const r = x => Math.round(x);
@@ -514,7 +563,9 @@ function renderTabs() {
       + `<i class="ti ti-x ptab-x" onclick="removePlace(event,${i})" role="button" aria-label="Remove"></i></button>`;
   });
   html += `<button class="ptab add" onclick="openSearch()" aria-label="Add city"><i class="ti ti-plus"></i></button>`;
-  document.getElementById('tabs').innerHTML = html;
+  const el = document.getElementById('tabs');
+  el.innerHTML = html;
+  hydrateIcons(el);
 }
 
 function setLocLabel() {
@@ -522,10 +573,11 @@ function setLocLabel() {
   el.innerHTML = place.geo
     ? '<i class="ti ti-current-location"></i> My Location'
     : '<i class="ti ti-map-pin"></i> ' + escapeHtml(place.name) + (place.region ? ', ' + escapeHtml(place.region) : '');
+  hydrateIcons(el);
 }
 
-function selectGeo() { if (!geoPlace) return; activeKey = 'geo'; place = geoPlace; renderTabs(); setLocLabel(); loadWeather(); }
-function selectPlace(i) { activeKey = i; place = places[i]; renderTabs(); setLocLabel(); loadWeather(); }
+function selectGeo() { if (!geoPlace) return; closeSearch(); activeKey = 'geo'; place = geoPlace; renderTabs(); setLocLabel(); loadWeather(); }
+function selectPlace(i) { closeSearch(); activeKey = i; place = places[i]; renderTabs(); setLocLabel(); loadWeather(); }
 function removePlace(ev, i) {
   ev.stopPropagation();
   const wasActive = activeKey === i;
@@ -555,7 +607,9 @@ function requestGeo(onFail) {
 // live city search via Open-Meteo geocoding (no key required)
 let searchTimer = null, searchSeq = 0;
 function openSearch() {
-  document.getElementById('searchPanel').classList.add('open');
+  const p = document.getElementById('searchPanel');
+  if (p.classList.contains('open')) { closeSearch(); return; }   // tapping + again closes
+  p.classList.add('open');
   const i = document.getElementById('searchInput');
   i.value = ''; document.getElementById('searchResults').innerHTML = '';
   setTimeout(() => i.focus(), 60);
@@ -696,21 +750,23 @@ function renderSky(c, daily, cat) {
   const bx = leftX + prog * (rightX - leftX);
   const by = horizonY - Math.max(0, Math.abs(alt)) * arcH;
   const obscure = cat === 'storm' ? 0.16 : cat === 'fog' ? 0.22 : (cover > 0.85 ? 0.28 : cover > 0.6 ? 0.6 : 1);
-  const body = document.getElementById('body'), glow = document.getElementById('glow');
-  body.setAttribute('cx', bx.toFixed(1)); body.setAttribute('cy', by.toFixed(1));
-  glow.setAttribute('cx', bx.toFixed(1)); glow.setAttribute('cy', by.toFixed(1));
+  const body = document.getElementById('body'), glow = document.getElementById('glow'), moon = document.getElementById('moon');
   if (isDay) {
+    // sun tracks the real sunrise→sunset arc, warming as it nears the horizon
+    body.setAttribute('cx', bx.toFixed(1)); body.setAttribute('cy', by.toFixed(1));
+    glow.setAttribute('cx', bx.toFixed(1)); glow.setAttribute('cy', by.toFixed(1));
     body.setAttribute('r', 18);
     body.setAttribute('fill', lerpColor('#ff9d4d', '#fff6d8', Math.min(1, alt * 2)));
     body.setAttribute('opacity', obscure);
     glow.setAttribute('r', (72 + (1 - alt) * 34).toFixed(0));
     glow.setAttribute('opacity', ((0.35 + 0.45 * Math.max(0, alt)) * obscure).toFixed(2));
+    moon.setAttribute('opacity', 0);
   } else {
-    body.setAttribute('r', 14);
-    body.setAttribute('fill', '#e3e9f4');
-    body.setAttribute('opacity', obscure);
-    glow.setAttribute('r', 46);
-    glow.setAttribute('opacity', (0.16 * obscure).toFixed(2));
+    // night: a recognizable moon (fixed, with craters + soft halo), dimmed by clouds
+    body.setAttribute('opacity', 0);
+    glow.setAttribute('opacity', 0);
+    const mop = cat === 'storm' ? 0.18 : cat === 'fog' ? 0.22 : Math.max(0.28, 1 - cover * 0.7);
+    moon.setAttribute('opacity', mop.toFixed(2));
   }
 
   // stars (night, dimmed by clouds)
@@ -877,9 +933,11 @@ async function loadWeather() {
     document.getElementById('compassLabel').textContent = 'wind from ' + dir(c.wind_direction_10m);
 
     const lo = r(c.wind_speed_10m), hi = r(c.wind_gusts_10m);
-    document.getElementById('gustPill').innerHTML = hi > lo
+    const gustPill = document.getElementById('gustPill');
+    gustPill.innerHTML = hi > lo
       ? `<i class="ti ti-arrow-up-right"></i> Gusting ${lo}–${hi} mph`
       : `<i class="ti ti-arrow-up-right"></i> Gusts to ${hi} mph`;
+    hydrateIcons(gustPill);
 
     // wind streak speed scales with wind
     const dur = Math.max(2.4, 13 - c.wind_speed_10m * 0.28).toFixed(1);
@@ -892,8 +950,10 @@ async function loadWeather() {
 
     // conditions + sky
     const [condText, condIcon, condCat] = wmo(c.weather_code, c.is_day);
-    document.getElementById('condIcon').className = 'ti ti-' + condIcon;
-    document.getElementById('condIcon').style.color = condColor(condCat, c.is_day);
+    const condEl = document.getElementById('condIcon');
+    condEl.className = 'ti ti-' + condIcon;
+    condEl.innerHTML = svgInner(condIcon);
+    condEl.style.color = condColor(condCat, c.is_day);
     document.getElementById('condText').textContent = condText;
     document.getElementById('condTemp').textContent = r(c.temperature_2m) + '°';
     document.getElementById('condFeels').textContent = 'Feels like ' + r(c.apparent_temperature) + '°';
@@ -928,8 +988,9 @@ async function loadWeather() {
     document.getElementById('mPeak').textContent = peak;
     document.getElementById('mPeakTime').textContent = 'at ' + labels[peakIdx];
 
-    // next 5 hours (may cross into tomorrow) for the drawer under the hero
-    let startIdx = d.hourly.time.findIndex(t => t >= c.time);
+    // next 5 hours: start at the hour AFTER the current clock hour (advances every :00)
+    const nowIdx = d.hourly.time.findIndex(t => t.slice(0,13) === c.time.slice(0,13));
+    let startIdx = nowIdx >= 0 ? nowIdx + 1 : d.hourly.time.findIndex(t => t > c.time);
     if (startIdx < 0) startIdx = 0;
     const nextRows = [];
     for (let i = startIdx; i < startIdx + 5 && i < d.hourly.time.length; i++) {
@@ -961,6 +1022,7 @@ async function loadAlerts(peakGust) {
       const a = windAlerts[0].properties;
       box.className = 'alert warn'; box.style.display = 'flex';
       box.innerHTML = `<i class="ti ti-alert-triangle"></i><div><b>${a.event} — ${a.severity}</b>${a.headline || a.description.slice(0,180)}</div>`;
+      hydrateIcons(box);
       return;
     }
   } catch (e) { /* fall through to derived advisory */ }
@@ -972,6 +1034,7 @@ async function loadAlerts(peakGust) {
   } else { box.className='alert calm'; box.style.display='flex';
     box.innerHTML = `<i class="ti ti-circle-check"></i><div><b>No wind concerns</b>Gusts stay below 40 mph today and no advisories are active.</div>`;
   }
+  hydrateIcons(box);
 }
 
 function fill(color1, color2) {
@@ -1046,6 +1109,8 @@ function drawDir(labels, deg) {
 
 // Boot: render tabs, then default to device location (fall back to first saved place).
 function boot() {
+  hydrateIcons(document);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSearch(); });
   renderTabs();
   const fallback = () => { if (activeKey === null) { selectPlace(0); } };
   setLocLabel();
