@@ -151,8 +151,14 @@
   /* dynamic sky + legibility scrim */
   .sky { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; display: block; }
   .hero-scrim { position: absolute; inset: 0; z-index: 1; pointer-events: none;
-    background: linear-gradient(0deg, rgba(6,14,28,0.42), rgba(6,14,28,0.06) 46%, rgba(6,14,28,0) 72%),
-                linear-gradient(110deg, rgba(6,14,28,0.34), rgba(6,14,28,0.04) 60%, rgba(6,14,28,0) 82%); }
+    background: linear-gradient(0deg, rgba(6,14,28,0.30), rgba(6,14,28,0.03) 46%, rgba(6,14,28,0) 70%),
+                linear-gradient(110deg, rgba(6,14,28,0.22), rgba(6,14,28,0.02) 58%, rgba(6,14,28,0) 80%); }
+  .hero-meta { position: absolute; top: 16px; right: 18px; z-index: 4; text-align: right; color: #fff;
+    pointer-events: none; text-shadow: 0 1px 10px rgba(6,14,28,0.55); }
+  .hero-meta .hm-main { display: flex; align-items: center; justify-content: flex-end; gap: 6px; font-size: 13px; font-weight: 700; }
+  .hero-meta .hm-main .ic { width: 15px; height: 15px; }
+  .hero-meta .hm-sub { font-size: 11.5px; font-weight: 500; opacity: 0.88; margin-top: 1px; }
+  @media (max-width: 680px) { .hero-meta { top: 14px; right: 15px; } }
 
   /* animated wind streaks */
   .streaks { position: absolute; inset: 0; z-index: 2; overflow: hidden; pointer-events: none; opacity: 0.8; }
@@ -313,6 +319,7 @@
       <rect id="fog" x="0" y="0" width="400" height="240" fill="#cfd6db" opacity="0"/>
     </svg>
     <div class="hero-scrim"></div>
+    <div class="hero-meta" id="heroMeta"><div class="hm-main"></div><div class="hm-sub"></div></div>
     <div class="streaks" id="streaks"></div>
     <div class="hero-inner">
       <div class="compass-wrap">
@@ -683,6 +690,20 @@ function parseColor(c) {
 function lerpColor(a, b, f) { const x = parseColor(a), y = parseColor(b); return `rgb(${Math.round(lerp(x[0],y[0],f))},${Math.round(lerp(x[1],y[1],f))},${Math.round(lerp(x[2],y[2],f))})`; }
 function lerpPal(a, b, f) { return [lerpColor(a[0],b[0],f), lerpColor(a[1],b[1],f), lerpColor(a[2],b[2],f)]; }
 
+// approximate moon phase (name + % illuminated) for a given instant
+function moonPhase(date) {
+  const synodic = 29.530588853;
+  const refNewMoon = Date.UTC(2000, 0, 6, 18, 14) / 86400000;   // known new moon
+  let age = (date.getTime() / 86400000 - refNewMoon) % synodic;
+  if (age < 0) age += synodic;
+  const illum = Math.round((1 - Math.cos(2 * Math.PI * age / synodic)) / 2 * 100);
+  const names = ['New moon','Waxing crescent','First quarter','Waxing gibbous','Full moon','Waning gibbous','Last quarter','Waning crescent'];
+  const bounds = [1.85, 5.54, 9.23, 12.91, 16.61, 20.30, 23.99, 27.68];
+  let name = 'New moon';
+  for (let i = 0; i < bounds.length; i++) { if (age < bounds[i]) { name = names[i]; break; } }
+  return { name, illum };
+}
+
 const PAL_DAY      = ['#2b78c2','#57a3e3','#9ccbee'];
 const PAL_GOLD     = ['#2c5f92','#d98b53','#ffce93'];
 const PAL_HORIZON  = ['#244a73','#c56b43','#f3a86a'];
@@ -764,9 +785,9 @@ function renderSky(c, daily, cat) {
 
   // base palette, then tint toward grey for cloud cover / storm
   let pal = skyPalette(alt);
-  if (cover > 0.1) {
+  if (cover > 0.25) {   // only grey the sky once it's actually cloudy (matches "Clear" label below 25%)
     const grey = isDay ? ['#8795a3','#9fb0bd','#c4d0d9'] : ['#26313f','#2f3a49','#3a4759'];
-    pal = lerpPal(pal, grey, Math.min(0.82, (cover - 0.1) * 0.95));
+    pal = lerpPal(pal, grey, Math.min(0.8, (cover - 0.25) * 0.95));
   }
   if (cat === 'storm') pal = lerpPal(pal, isDay ? ['#3a4150','#474e60','#565d72'] : ['#171b29','#1f2334','#2a2f43'], 0.55);
   setStop('sg0', pal[0]); setStop('sg1', pal[1]); setStop('sg2', pal[2]);
@@ -793,6 +814,23 @@ function renderSky(c, daily, cat) {
     glow.setAttribute('opacity', 0);
     const mop = cat === 'storm' ? 0.18 : cat === 'fog' ? 0.22 : Math.max(0.28, 1 - cover * 0.7);
     moon.setAttribute('opacity', mop.toFixed(2));
+  }
+
+  // concise top-right label explaining the scene (sunrise/sunset time, or moon phase)
+  const meta = document.getElementById('heroMeta');
+  if (meta) {
+    const fmt = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    const WIN = 45 * 60000;   // 45-min "near" window
+    let mIcon, mMain, mSub;
+    if (isDay) {
+      if (now - sr <= WIN && now - sr >= 0) { mIcon = 'sun'; mMain = 'Sunrise'; mSub = fmt(sr); }
+      else { mIcon = 'sun'; mMain = 'Sunset'; mSub = fmt(ss); }       // upcoming sunset
+    } else {
+      if (sr - now > 0 && sr - now <= WIN) { mIcon = 'sun'; mMain = 'Sunrise'; mSub = fmt(sr); }
+      else { const mp = moonPhase(new Date()); mIcon = 'moon'; mMain = mp.name; mSub = mp.illum + '% lit'; }
+    }
+    meta.querySelector('.hm-main').innerHTML = svgInner(mIcon) + '<span>' + mMain + '</span>';
+    meta.querySelector('.hm-sub').textContent = mSub;
   }
 
   // stars (night, dimmed by clouds)
