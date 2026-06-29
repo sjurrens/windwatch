@@ -197,6 +197,7 @@
   .nh-cell { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 2px 4px; position: relative; }
   .nh-cell + .nh-cell::before { content: ''; position: absolute; left: 0; top: 12%; height: 76%; width: 1px; background: var(--line); }
   .nh-time { font-size: 12.5px; font-weight: 700; color: var(--ink); }
+  .nh-cond { font-size: 19px; line-height: 0; }
   .nh-arrow { color: var(--wind); line-height: 0; transition: transform 0.7s cubic-bezier(0.22,0.68,0.18,1); }
   .nh-arrow svg { width: 22px; height: 22px; display: block; }
   .nh-dir { font-size: 10.5px; font-weight: 600; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.05em; margin-top: -2px; }
@@ -436,8 +437,8 @@ let activeKey = null;              // 'geo' or numeric index into places[]
 
 function buildAPI(lat, lon) {
   return `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`
-    + `&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,cloud_cover,is_day,wind_speed_10m,wind_gusts_10m,wind_direction_10m`
-    + `&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m`
+    + `&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,cloud_cover,precipitation,is_day,wind_speed_10m,wind_gusts_10m,wind_direction_10m`
+    + `&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code,cloud_cover,precipitation,is_day`
     + `&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset`
     + `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto`;
 }
@@ -542,6 +543,23 @@ function applySky(cat, isDay){
 function condColor(cat, isDay){
   if (cat === 'clear') return isDay ? '#f2a93b' : '#8e9bc4';
   return ({ cloud:'#7e8c9c', rain:'#3f86c9', snow:'#74b3dc', storm:'#6a5cc4', fog:'#8a96a2' })[cat] || '#2f7dd1';
+}
+
+// Honest condition from real cloud cover + precipitation (Open-Meteo's weather_code
+// over-reports storms on clear days, so precip/cloud drive the visuals). Returns {label, icon, cat}.
+function deriveCondition(w) {
+  const code = w.weather_code, cloud = w.cloud_cover ?? 0, precip = w.precipitation ?? 0, isDay = w.is_day === 1;
+  const SNOW = [71,73,75,77,85,86,56,57,66,67], STORM = [95,96,99];
+  if (precip >= 0.05) {                                   // something is actually falling
+    if (STORM.includes(code)) return { label:'Thunderstorm', icon:'cloud-storm', cat:'storm' };
+    if (SNOW.includes(code))  return { label: code >= 75 ? 'Heavy snow' : 'Snow', icon:'cloud-snow', cat:'snow' };
+    return { label: precip >= 2.5 ? 'Heavy rain' : precip >= 0.5 ? 'Rain' : 'Light rain', icon:'cloud-rain', cat:'rain' };
+  }
+  if ([45,48].includes(code)) return { label:'Fog', icon:'cloud-fog', cat:'fog' };
+  if (cloud >= 88) return { label:'Overcast', icon:'cloud', cat:'cloud' };
+  if (cloud >= 60) return { label:'Mostly cloudy', icon:'cloud', cat:'cloud' };
+  if (cloud >= 25) return { label:'Partly cloudy', icon:'cloud', cat:'clear' };
+  return { label: isDay ? 'Clear sky' : 'Clear', icon: isDay ? 'sun' : 'moon', cat:'clear' };
 }
 
 // ---------- saved places (localStorage), tabs, search, geolocation ----------
@@ -789,7 +807,7 @@ function renderSky(c, daily, cat) {
   // precipitation + fog
   let precip = '';
   if (cat === 'rain' || cat === 'storm') {
-    const heavy = [65, 67, 82, 99].includes(c.weather_code);
+    const heavy = (c.precipitation ?? 0) >= 2.5 || [65, 67, 82, 99].includes(c.weather_code);
     precip = buildRain(heavy ? 30 : 18, Math.min(20, 5 + c.wind_speed_10m * 0.45));
   } else if (cat === 'snow') {
     precip = buildSnow(24);
@@ -908,8 +926,10 @@ function renderNext(rows) {
   document.getElementById('nextHours').innerHTML = rows.map(h => {
     const hr = new Date(h.t).toLocaleTimeString([], { hour: 'numeric' });
     const w = Math.round(h.gust / maxG * 100);
+    const cond = deriveCondition({ weather_code: h.code, cloud_cover: h.cloud, precipitation: h.precip, is_day: h.isDay });
     return `<div class="nh-cell">
       <div class="nh-time">${hr}</div>
+      <div class="nh-cond" style="color:${condColor(cond.cat, h.isDay)}" title="${cond.label}">${svgInner(cond.icon)}</div>
       <div class="nh-arrow" style="transform:rotate(${h.deg + 180}deg)">${ARROW_SVG}</div>
       <div class="nh-dir">${dir(h.deg)}</div>
       <div class="nh-spd">${h.spd}<span class="u">mph</span></div>
@@ -949,7 +969,8 @@ async function loadWeather() {
     document.getElementById('beaufortDesc').textContent = bdesc;
 
     // conditions + sky
-    const [condText, condIcon, condCat] = wmo(c.weather_code, c.is_day);
+    const cond = deriveCondition(c);
+    const condText = cond.label, condIcon = cond.icon, condCat = cond.cat;
     const condEl = document.getElementById('condIcon');
     condEl.className = 'ti ti-' + condIcon;
     condEl.innerHTML = svgInner(condIcon);
@@ -992,9 +1013,15 @@ async function loadWeather() {
     const nowIdx = d.hourly.time.findIndex(t => t.slice(0,13) === c.time.slice(0,13));
     let startIdx = nowIdx >= 0 ? nowIdx + 1 : d.hourly.time.findIndex(t => t > c.time);
     if (startIdx < 0) startIdx = 0;
-    const nextRows = [];
-    for (let i = startIdx; i < startIdx + 5 && i < d.hourly.time.length; i++) {
-      nextRows.push({ t: d.hourly.time[i], spd: r(d.hourly.wind_speed_10m[i]), gust: r(d.hourly.wind_gusts_10m[i]), deg: r(d.hourly.wind_direction_10m[i]) });
+    const H = d.hourly, nextRows = [];
+    for (let i = startIdx; i < startIdx + 5 && i < H.time.length; i++) {
+      nextRows.push({
+        t: H.time[i], spd: r(H.wind_speed_10m[i]), gust: r(H.wind_gusts_10m[i]), deg: r(H.wind_direction_10m[i]),
+        code: H.weather_code ? H.weather_code[i] : 0,
+        cloud: H.cloud_cover ? H.cloud_cover[i] : 0,
+        precip: H.precipitation ? H.precipitation[i] : 0,
+        isDay: H.is_day ? H.is_day[i] : 1
+      });
     }
     renderNext(nextRows);
 
