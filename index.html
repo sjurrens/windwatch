@@ -70,6 +70,47 @@
   button.refresh i.spin { animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   @media (max-width: 560px) { button.refresh span { display: none; } button.refresh { padding: 0; width: 44px; } }
+  .iconbtn { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px;
+    border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,0.6); color: var(--ink);
+    cursor: pointer; font-family: inherit; transition: transform 0.15s ease; flex-shrink: 0; }
+  .iconbtn:active { transform: scale(0.94); }
+  .iconbtn i { font-size: 20px; }
+
+  /* ---------- place tabs ---------- */
+  .places { display: flex; align-items: center; gap: 8px; padding: 0 20px 12px; max-width: 940px; margin: 0 auto;
+    overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .places::-webkit-scrollbar { display: none; }
+  .ptab { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; flex: 0 0 auto;
+    height: 38px; padding: 0 9px 0 13px; border-radius: 12px; border: 1px solid var(--line);
+    background: rgba(255,255,255,0.62); color: var(--ink); font-family: inherit; font-size: 13.5px; font-weight: 600;
+    cursor: pointer; transition: transform 0.15s ease, background 0.2s ease; }
+  .ptab:active { transform: scale(0.95); }
+  .ptab.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .ptab i { font-size: 15px; }
+  .ptab .ptab-x { font-size: 16px; opacity: 0.5; border-radius: 50%; padding: 1px; }
+  .ptab .ptab-x:hover { opacity: 1; }
+  .ptab.on .ptab-x { opacity: 0.7; }
+  .ptab.add { padding: 0 11px; color: var(--wind); }
+  .ptab.add i { font-size: 19px; }
+
+  /* ---------- city search ---------- */
+  .search-panel { max-height: 0; overflow: hidden; transition: max-height 0.28s ease; background: rgba(238,243,249,0.97); }
+  .search-panel.open { max-height: 64vh; border-top: 1px solid var(--line); }
+  .search-inner { padding: 12px 20px 16px; max-width: 940px; margin: 0 auto; }
+  .search-field { display: flex; align-items: center; gap: 11px; background: #fff; border: 1px solid var(--line);
+    border-radius: 14px; padding: 0 15px; height: 52px; box-shadow: var(--shadow); }
+  .search-field i { font-size: 20px; color: var(--ink-soft); flex-shrink: 0; }
+  .search-field i.clear { cursor: pointer; }
+  .search-field input { flex: 1; min-width: 0; border: none; outline: none; background: transparent;
+    font-family: inherit; font-size: 16px; color: var(--ink); }
+  .search-results { margin-top: 8px; max-height: 44vh; overflow-y: auto; }
+  .sr-item { display: flex; align-items: center; gap: 11px; width: 100%; text-align: left; background: transparent;
+    border: none; border-radius: 11px; padding: 12px; cursor: pointer; font-family: inherit; color: var(--ink); }
+  .sr-item:hover, .sr-item:active { background: rgba(47,125,209,0.09); }
+  .sr-item i { color: var(--wind); font-size: 18px; flex-shrink: 0; }
+  .sr-name { font-size: 15.5px; font-weight: 600; }
+  .sr-sub { font-size: 13px; color: var(--ink-soft); margin-left: auto; text-align: right; padding-left: 10px; }
+  .sr-empty { padding: 14px 12px; color: var(--ink-soft); font-size: 14px; }
 
   main { padding: 24px 0 40px; }
 
@@ -96,14 +137,21 @@
     transition: background 1.2s ease;
   }
   .hero-inner {
-    position: relative; z-index: 2;
+    position: relative; z-index: 3;
     display: grid; grid-template-columns: 250px 1fr; gap: 28px;
     padding: 32px 34px;
+    text-shadow: 0 1px 3px rgba(6,14,28,0.30), 0 2px 18px rgba(6,14,28,0.40);
   }
   @media (max-width: 680px) { .hero-inner { grid-template-columns: 1fr; gap: 18px; padding: 26px 22px; text-align: center; } }
 
+  /* dynamic sky + legibility scrim */
+  .sky { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; display: block; }
+  .hero-scrim { position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background: linear-gradient(0deg, rgba(6,14,28,0.42), rgba(6,14,28,0.06) 46%, rgba(6,14,28,0) 72%),
+                linear-gradient(110deg, rgba(6,14,28,0.34), rgba(6,14,28,0.04) 60%, rgba(6,14,28,0) 82%); }
+
   /* animated wind streaks */
-  .streaks { position: absolute; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; opacity: 0.8; }
+  .streaks { position: absolute; inset: 0; z-index: 2; overflow: hidden; pointer-events: none; opacity: 0.8; }
   .streak { position: absolute; height: 2px; width: 220px; border-radius: 2px;
     background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent);
     transform: translateX(-260px); animation: blow var(--wind-dur) linear infinite; }
@@ -202,13 +250,25 @@
   <div class="bar">
     <div class="brand">
       <span class="k"><i class="ti ti-wind" style="font-size:11px"></i> Jack's Wind Watch</span>
-      <span class="loc"><i class="ti ti-map-pin"></i> Oklahoma City, OK</span>
+      <span class="loc" id="locName"><i class="ti ti-map-pin"></i> Oklahoma City, OK</span>
     </div>
     <div class="status">
       <span class="live"><span class="dot"></span><span id="updated">Loading…</span></span>
+      <button class="iconbtn" id="locBtn" onclick="requestGeo()" aria-label="Use my location"><i class="ti ti-current-location"></i></button>
       <button class="refresh" id="refreshBtn" onclick="loadWeather()" aria-label="Refresh">
         <i class="ti ti-refresh" id="refreshIcon"></i><span>Refresh</span>
       </button>
+    </div>
+  </div>
+  <div class="places" id="tabs"></div>
+  <div class="search-panel" id="searchPanel">
+    <div class="search-inner">
+      <div class="search-field">
+        <i class="ti ti-search"></i>
+        <input id="searchInput" type="text" inputmode="search" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Search for a city…" oninput="onSearchInput(event)">
+        <i class="ti ti-x clear" onclick="closeSearch()" role="button" aria-label="Close search"></i>
+      </div>
+      <div class="search-results" id="searchResults"></div>
     </div>
   </div>
 </header>
@@ -220,6 +280,27 @@
 
   <!-- HERO: wind -->
   <section class="hero reveal" id="hero">
+    <svg class="sky" id="sky" viewBox="0 0 400 240" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <defs>
+        <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop id="sg0" offset="0%" stop-color="#1c6fb8"/>
+          <stop id="sg1" offset="48%" stop-color="#3f8fd0"/>
+          <stop id="sg2" offset="100%" stop-color="#bfe0f5"/>
+        </linearGradient>
+        <radialGradient id="sunGlow">
+          <stop offset="0%" stop-color="rgba(255,242,205,0.95)"/>
+          <stop offset="100%" stop-color="rgba(255,242,205,0)"/>
+        </radialGradient>
+      </defs>
+      <rect x="0" y="0" width="400" height="240" fill="url(#skyGrad)"/>
+      <g id="stars" opacity="0"></g>
+      <circle id="glow" cx="-50" cy="-50" r="70" fill="url(#sunGlow)" opacity="0"/>
+      <circle id="body" cx="-50" cy="-50" r="18" fill="#fff6d8" opacity="0"/>
+      <g id="clouds"></g>
+      <g id="precip"></g>
+      <rect id="fog" x="0" y="0" width="400" height="240" fill="#cfd6db" opacity="0"/>
+    </svg>
+    <div class="hero-scrim"></div>
     <div class="streaks" id="streaks"></div>
     <div class="hero-inner">
       <div class="compass-wrap">
@@ -331,19 +412,26 @@
   <p class="foot">
     Live wind, temperature &amp; conditions from <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> &middot;
     advisories from the U.S. National Weather Service<br>
-    Auto-refreshes every 5 minutes &middot; Oklahoma City (35.47, &minus;97.52)
+    Auto-refreshes every 5 minutes &middot; <span id="footLoc">Oklahoma City (35.47, &minus;97.52)</span>
   </p>
 </main>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const LAT = 35.468, LON = -97.516;
-const API = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}`
-  + `&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,is_day,wind_speed_10m,wind_gusts_10m,wind_direction_10m`
-  + `&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m`
-  + `&daily=temperature_2m_max,temperature_2m_min`
-  + `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto`;
-const ALERTS = `https://api.weather.gov/alerts/active?point=${LAT},${LON}`;
+const DEFAULT_PLACE = { name: 'Oklahoma City', region: 'OK', lat: 35.468, lon: -97.516 };
+let place = DEFAULT_PLACE;          // currently displayed location
+let geoPlace = null;               // device location (not persisted)
+let activeKey = null;              // 'geo' or numeric index into places[]
+
+function buildAPI(lat, lon) {
+  return `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`
+    + `&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,cloud_cover,is_day,wind_speed_10m,wind_gusts_10m,wind_direction_10m`
+    + `&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m`
+    + `&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset`
+    + `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto`;
+}
+const buildAlerts = (lat, lon) => `https://api.weather.gov/alerts/active?point=${lat},${lon}`;
+const escapeHtml = s => (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 const DIRS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
 const ARROW_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V5"/><path d="M6 11l6-6 6 6"/></svg>';
@@ -405,6 +493,258 @@ function applySky(cat, isDay){
 function condColor(cat, isDay){
   if (cat === 'clear') return isDay ? '#f2a93b' : '#8e9bc4';
   return ({ cloud:'#7e8c9c', rain:'#3f86c9', snow:'#74b3dc', storm:'#6a5cc4', fog:'#8a96a2' })[cat] || '#2f7dd1';
+}
+
+// ---------- saved places (localStorage), tabs, search, geolocation ----------
+const LS_KEY = 'ww_places_v1';
+function loadPlaces() { try { return JSON.parse(localStorage.getItem(LS_KEY)) || []; } catch (e) { return []; } }
+function savePlaces(arr) { try { localStorage.setItem(LS_KEY, JSON.stringify(arr)); } catch (e) {} }
+let places = loadPlaces();
+if (!places.length) { places = [DEFAULT_PLACE]; savePlaces(places); }
+
+function renderTabs() {
+  let html = '';
+  if (geoPlace) {
+    html += `<button class="ptab${activeKey === 'geo' ? ' on' : ''}" onclick="selectGeo()">`
+      + `<i class="ti ti-current-location"></i><span>My Location</span></button>`;
+  }
+  places.forEach((p, i) => {
+    html += `<button class="ptab${activeKey === i ? ' on' : ''}" onclick="selectPlace(${i})">`
+      + `<span>${escapeHtml(p.name)}</span>`
+      + `<i class="ti ti-x ptab-x" onclick="removePlace(event,${i})" role="button" aria-label="Remove"></i></button>`;
+  });
+  html += `<button class="ptab add" onclick="openSearch()" aria-label="Add city"><i class="ti ti-plus"></i></button>`;
+  document.getElementById('tabs').innerHTML = html;
+}
+
+function setLocLabel() {
+  const el = document.getElementById('locName');
+  el.innerHTML = place.geo
+    ? '<i class="ti ti-current-location"></i> My Location'
+    : '<i class="ti ti-map-pin"></i> ' + escapeHtml(place.name) + (place.region ? ', ' + escapeHtml(place.region) : '');
+}
+
+function selectGeo() { if (!geoPlace) return; activeKey = 'geo'; place = geoPlace; renderTabs(); setLocLabel(); loadWeather(); }
+function selectPlace(i) { activeKey = i; place = places[i]; renderTabs(); setLocLabel(); loadWeather(); }
+function removePlace(ev, i) {
+  ev.stopPropagation();
+  const wasActive = activeKey === i;
+  places.splice(i, 1); savePlaces(places);
+  if (!places.length && !geoPlace) { places = [DEFAULT_PLACE]; savePlaces(places); }
+  if (wasActive) {
+    if (places.length) selectPlace(0);
+    else if (geoPlace) selectGeo();
+  } else {
+    if (typeof activeKey === 'number' && activeKey > i) activeKey--;
+    renderTabs();
+  }
+}
+
+function requestGeo(onFail) {
+  if (!navigator.geolocation) { if (onFail) onFail(); return; }
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      geoPlace = { name: 'My Location', lat: +pos.coords.latitude.toFixed(4), lon: +pos.coords.longitude.toFixed(4), geo: true };
+      selectGeo();
+    },
+    () => { if (onFail) onFail(); },
+    { enableHighAccuracy: false, timeout: 8000, maximumAge: 600000 }
+  );
+}
+
+// live city search via Open-Meteo geocoding (no key required)
+let searchTimer = null, searchSeq = 0;
+function openSearch() {
+  document.getElementById('searchPanel').classList.add('open');
+  const i = document.getElementById('searchInput');
+  i.value = ''; document.getElementById('searchResults').innerHTML = '';
+  setTimeout(() => i.focus(), 60);
+}
+function closeSearch() { document.getElementById('searchPanel').classList.remove('open'); }
+function onSearchInput(e) {
+  const q = e.target.value.trim();
+  clearTimeout(searchTimer);
+  if (q.length < 2) { document.getElementById('searchResults').innerHTML = ''; return; }
+  searchTimer = setTimeout(() => runSearch(q), 150);
+}
+async function runSearch(q) {
+  const seq = ++searchSeq, box = document.getElementById('searchResults');
+  try {
+    const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=8&language=en&format=json`;
+    const data = await (await fetch(url)).json();
+    if (seq !== searchSeq) return;                       // a newer keystroke superseded this
+    const list = data.results || [];
+    if (!list.length) { box.innerHTML = '<div class="sr-empty">No matches</div>'; return; }
+    box.innerHTML = list.map((p, idx) => {
+      const sub = [p.admin1, p.country].filter(Boolean).join(', ');
+      return `<button class="sr-item" data-idx="${idx}"><i class="ti ti-map-pin"></i>`
+        + `<span class="sr-name">${escapeHtml(p.name)}</span><span class="sr-sub">${escapeHtml(sub)}</span></button>`;
+    }).join('');
+    box.querySelectorAll('.sr-item').forEach(btn => { btn.onclick = () => addCity(list[+btn.dataset.idx]); });
+  } catch (e) {
+    if (seq === searchSeq) box.innerHTML = '<div class="sr-empty">Search unavailable</div>';
+  }
+}
+function addCity(p) {
+  const np = { name: p.name, region: p.admin1 || p.country || '', lat: +(+p.latitude).toFixed(4), lon: +(+p.longitude).toFixed(4) };
+  let idx = places.findIndex(x => Math.abs(x.lat - np.lat) < 0.02 && Math.abs(x.lon - np.lon) < 0.02);
+  if (idx < 0) { places.push(np); savePlaces(places); idx = places.length - 1; }
+  closeSearch();
+  selectPlace(idx);
+}
+
+// ---------- realistic dynamic sky ----------
+const ms = s => { if (!s) return NaN; if (s.length === 16) s += ':00'; return new Date(s).getTime(); };
+function lerp(a, b, f) { return a + (b - a) * f; }
+function parseColor(c) {
+  if (c[0] === '#') { c = c.slice(1); return [parseInt(c.slice(0,2),16), parseInt(c.slice(2,4),16), parseInt(c.slice(4,6),16)]; }
+  const m = c.match(/-?\d+\.?\d*/g); return [+m[0], +m[1], +m[2]];   // rgb(...) form
+}
+function lerpColor(a, b, f) { const x = parseColor(a), y = parseColor(b); return `rgb(${Math.round(lerp(x[0],y[0],f))},${Math.round(lerp(x[1],y[1],f))},${Math.round(lerp(x[2],y[2],f))})`; }
+function lerpPal(a, b, f) { return [lerpColor(a[0],b[0],f), lerpColor(a[1],b[1],f), lerpColor(a[2],b[2],f)]; }
+
+const PAL_DAY      = ['#2b78c2','#57a3e3','#9ccbee'];
+const PAL_GOLD     = ['#2c5f92','#d98b53','#ffce93'];
+const PAL_HORIZON  = ['#244a73','#c56b43','#f3a86a'];
+const PAL_TWILIGHT = ['#1f2f57','#5b4a7a','#9c5f74'];
+const PAL_NIGHT    = ['#0a1430','#13203c','#1f2e49'];
+function skyPalette(alt) {
+  if (alt >= 0.18)  return lerpPal(PAL_GOLD, PAL_DAY, (alt - 0.18) / 0.82);
+  if (alt >= 0)     return lerpPal(PAL_HORIZON, PAL_GOLD, alt / 0.18);
+  if (alt >= -0.12) return lerpPal(PAL_TWILIGHT, PAL_HORIZON, (alt + 0.12) / 0.12);
+  if (alt >= -0.40) return lerpPal(PAL_NIGHT, PAL_TWILIGHT, (alt + 0.40) / 0.28);
+  return PAL_NIGHT;
+}
+
+function cloudShape(scale, color, op) {
+  return `<g opacity="${op}">`
+    + `<ellipse cx="0" cy="0" rx="${28*scale}" ry="${16*scale}" fill="${color}"/>`
+    + `<ellipse cx="${20*scale}" cy="4" rx="${22*scale}" ry="${13*scale}" fill="${color}"/>`
+    + `<ellipse cx="${-22*scale}" cy="5" rx="${20*scale}" ry="${12*scale}" fill="${color}"/>`
+    + `<ellipse cx="0" cy="8" rx="${34*scale}" ry="${14*scale}" fill="${color}"/></g>`;
+}
+function buildClouds(count, color, op, dur) {
+  const ys = [38, 64, 50, 78, 30, 70]; let s = '';
+  for (let i = 0; i < count; i++) {
+    const scale = 0.7 + (i % 3) * 0.28, y = ys[i % ys.length];
+    const d = (dur * (1 + (i % 3) * 0.3)).toFixed(1);
+    const begin = (-i * (dur / Math.max(count, 1))).toFixed(1);
+    s += `<g transform="translate(0 ${y})"><g>${cloudShape(scale, color, op)}`
+      + `<animateTransform attributeName="transform" type="translate" from="-140 0" to="480 0" dur="${d}s" begin="${begin}s" repeatCount="indefinite"/></g></g>`;
+  }
+  return s;
+}
+function buildRain(n, slant) {
+  let s = '';
+  for (let i = 0; i < n; i++) {
+    const x = (i * 37) % 400, dur = (0.55 + (i % 3) * 0.12).toFixed(2), begin = (-i * 0.06).toFixed(2);
+    s += `<line x1="${x}" y1="-12" x2="${x - slant*0.4}" y2="0" stroke="rgba(205,228,247,0.55)" stroke-width="1.4" stroke-linecap="round">`
+      + `<animateTransform attributeName="transform" type="translate" from="0 0" to="${slant} 280" dur="${dur}s" begin="${begin}s" repeatCount="indefinite"/></line>`;
+  }
+  return s;
+}
+function buildSnow(n) {
+  let s = '';
+  for (let i = 0; i < n; i++) {
+    const x = (i * 43) % 400, rad = (i % 3 ? 1.4 : 2.1), dur = (3 + (i % 4)).toFixed(1), begin = (-i * 0.3).toFixed(1);
+    s += `<circle cx="${x}" cy="-6" r="${rad}" fill="rgba(255,255,255,0.85)">`
+      + `<animateTransform attributeName="transform" type="translate" from="0 0" to="${i % 2 ? 16 : -16} 270" dur="${dur}s" begin="${begin}s" repeatCount="indefinite"/></circle>`;
+  }
+  return s;
+}
+
+(function makeStars() {
+  let s = '';
+  for (let i = 0; i < 46; i++) {
+    const x = (i * 97) % 400, y = ((i * 53) % 150) + 6, rad = (i % 4 === 0) ? 1.3 : 0.7;
+    s += `<circle cx="${x}" cy="${y}" r="${rad}" fill="#fff"/>`;
+  }
+  const el = document.getElementById('stars'); if (el) el.innerHTML = s;
+})();
+
+function setStop(id, color) { document.getElementById(id).setAttribute('stop-color', color); }
+
+function renderSky(c, daily, cat) {
+  const sky = document.getElementById('sky'); if (!sky) return;
+  const isDay = c.is_day === 1, cover = (c.cloud_cover ?? 0) / 100;
+  const now = ms(c.time), sr = ms(daily.sunrise[0]), ss = ms(daily.sunset[0]), DAY_MS = 86400000;
+
+  // solar altitude proxy in [-1, 1]; 0 at sunrise/sunset, +1 midday, -1 midnight
+  let prog, alt;
+  if (now >= sr && now <= ss) {
+    prog = (now - sr) / (ss - sr);
+    alt = Math.sin(Math.PI * prog);
+  } else {
+    let nStart, nEnd;
+    if (now > ss) { nStart = ss; nEnd = ms(daily.sunrise[1]) || (sr + DAY_MS); }
+    else { nStart = (ms(daily.sunset[1]) ? ms(daily.sunset[0]) - DAY_MS : ss - DAY_MS); nEnd = sr; }
+    prog = Math.min(1, Math.max(0, (now - nStart) / (nEnd - nStart)));
+    alt = -Math.sin(Math.PI * prog);
+  }
+
+  // base palette, then tint toward grey for cloud cover / storm
+  let pal = skyPalette(alt);
+  if (cover > 0.1) {
+    const grey = isDay ? ['#8795a3','#9fb0bd','#c4d0d9'] : ['#26313f','#2f3a49','#3a4759'];
+    pal = lerpPal(pal, grey, Math.min(0.82, (cover - 0.1) * 0.95));
+  }
+  if (cat === 'storm') pal = lerpPal(pal, isDay ? ['#3a4150','#474e60','#565d72'] : ['#171b29','#1f2334','#2a2f43'], 0.55);
+  setStop('sg0', pal[0]); setStop('sg1', pal[1]); setStop('sg2', pal[2]);
+
+  // sun / moon along an east→west arc
+  const horizonY = 176, arcH = 134, leftX = 64, rightX = 336;
+  const bx = leftX + prog * (rightX - leftX);
+  const by = horizonY - Math.max(0, Math.abs(alt)) * arcH;
+  const obscure = cat === 'storm' ? 0.16 : cat === 'fog' ? 0.22 : (cover > 0.85 ? 0.28 : cover > 0.6 ? 0.6 : 1);
+  const body = document.getElementById('body'), glow = document.getElementById('glow');
+  body.setAttribute('cx', bx.toFixed(1)); body.setAttribute('cy', by.toFixed(1));
+  glow.setAttribute('cx', bx.toFixed(1)); glow.setAttribute('cy', by.toFixed(1));
+  if (isDay) {
+    body.setAttribute('r', 18);
+    body.setAttribute('fill', lerpColor('#ff9d4d', '#fff6d8', Math.min(1, alt * 2)));
+    body.setAttribute('opacity', obscure);
+    glow.setAttribute('r', (72 + (1 - alt) * 34).toFixed(0));
+    glow.setAttribute('opacity', ((0.35 + 0.45 * Math.max(0, alt)) * obscure).toFixed(2));
+  } else {
+    body.setAttribute('r', 14);
+    body.setAttribute('fill', '#e3e9f4');
+    body.setAttribute('opacity', obscure);
+    glow.setAttribute('r', 46);
+    glow.setAttribute('opacity', (0.16 * obscure).toFixed(2));
+  }
+
+  // stars (night, dimmed by clouds)
+  document.getElementById('stars').setAttribute('opacity',
+    (isDay ? 0 : Math.min(0.9, Math.max(0, -alt) * 1.2) * (1 - cover * 0.7)).toFixed(2));
+
+  // clouds
+  const cloudDur = Math.min(26, Math.max(8, 26 - c.wind_speed_10m * 0.5));
+  let count, cColor, cOp;
+  if (cat === 'fog') { count = 0; }
+  else {
+    count = Math.min(6, Math.max(cat === 'clear' ? 0 : 2, Math.round(cover * 5)));
+    if (cat === 'storm') { count = Math.max(count, 4); cColor = isDay ? '#5c6678' : '#2b3340'; cOp = 0.92; }
+    else if (alt > 0.05) { cColor = cover > 0.7 ? '#d2dbe2' : '#ffffff'; cOp = 0.85; }
+    else if (isDay) { cColor = '#c4ced6'; cOp = 0.8; }
+    else { cColor = '#3a4658'; cOp = 0.7; }
+  }
+  document.getElementById('clouds').innerHTML = count ? buildClouds(count, cColor, cOp, cloudDur) : '';
+
+  // precipitation + fog
+  let precip = '';
+  if (cat === 'rain' || cat === 'storm') {
+    const heavy = [65, 67, 82, 99].includes(c.weather_code);
+    precip = buildRain(heavy ? 30 : 18, Math.min(20, 5 + c.wind_speed_10m * 0.45));
+  } else if (cat === 'snow') {
+    precip = buildSnow(24);
+  }
+  if (cat === 'storm') precip += '<rect x="0" y="0" width="400" height="240" fill="#fff" opacity="0">'
+    + '<animate attributeName="opacity" values="0;0;0;0.65;0;0.4;0" keyTimes="0;0.62;0.70;0.71;0.74;0.76;0.80" dur="6s" repeatCount="indefinite"/></rect>';
+  document.getElementById('precip').innerHTML = precip;
+
+  const fog = document.getElementById('fog');
+  fog.setAttribute('opacity', cat === 'fog' ? (isDay ? 0.55 : 0.4) : 0);
+  fog.setAttribute('fill', isDay ? '#cfd6db' : '#2b333d');
 }
 
 let windChart, dirChart, hourDir = [];
@@ -527,7 +867,7 @@ async function loadWeather() {
   const btn = document.getElementById('refreshBtn'), icon = document.getElementById('refreshIcon'), err = document.getElementById('err');
   btn.disabled = true; icon.classList.add('spin'); err.style.display = 'none';
   try {
-    const d = await (await fetch(API)).json();
+    const d = await (await fetch(buildAPI(place.lat, place.lon))).json();
     const c = d.current;
 
     // compass + hero wind
@@ -563,6 +903,9 @@ async function loadWeather() {
         'High ' + r(d.daily.temperature_2m_max[0]) + '° · Low ' + r(d.daily.temperature_2m_min[0]) + '°';
     }
     applySky(condCat, c.is_day);
+    if (d.daily && d.daily.sunrise) renderSky(c, d.daily, condCat);
+    document.getElementById('footLoc').textContent =
+      `${place.geo ? 'My Location' : place.name} (${(+place.lat).toFixed(2)}, ${(+place.lon).toFixed(2)})`;
 
     // wind tiles
     document.getElementById('mGust').textContent = r(c.wind_gusts_10m);
@@ -608,7 +951,7 @@ async function loadWeather() {
 async function loadAlerts(peakGust) {
   const box = document.getElementById('alertBox');
   try {
-    const res = await fetch(ALERTS, { headers: { 'Accept': 'application/geo+json' } });
+    const res = await fetch(buildAlerts(place.lat, place.lon), { headers: { 'Accept': 'application/geo+json' } });
     const data = await res.json();
     const windAlerts = (data.features || []).filter(f => {
       const e = (f.properties.event || '').toLowerCase();
@@ -701,7 +1044,28 @@ function drawDir(labels, deg) {
   });
 }
 
-loadWeather();
+// Boot: render tabs, then default to device location (fall back to first saved place).
+function boot() {
+  renderTabs();
+  const fallback = () => { if (activeKey === null) { selectPlace(0); } };
+  setLocLabel();
+  document.getElementById('updated').textContent = 'Locating…';
+  let settled = false;
+  const done = () => { settled = true; };
+  const timer = setTimeout(() => { if (!settled) { done(); fallback(); } }, 8500);
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        if (settled) return; done(); clearTimeout(timer);
+        geoPlace = { name: 'My Location', lat: +pos.coords.latitude.toFixed(4), lon: +pos.coords.longitude.toFixed(4), geo: true };
+        selectGeo();
+      },
+      () => { if (settled) return; done(); clearTimeout(timer); fallback(); },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 600000 }
+    );
+  } else { clearTimeout(timer); fallback(); }
+}
+boot();
 
 // Auto-poll for fresh data every 5 minutes; pause while the tab is hidden.
 const POLL_MS = 5 * 60 * 1000;
