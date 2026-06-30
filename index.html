@@ -204,6 +204,7 @@
   .nh-cell + .nh-cell::before { content: ''; position: absolute; left: 0; top: 12%; height: 76%; width: 1px; background: var(--line); }
   .nh-time { font-size: 12.5px; font-weight: 700; color: var(--ink); }
   .nh-cond { font-size: 19px; line-height: 0; }
+  .nh-temp { font-size: 13px; font-weight: 700; color: var(--ink); }
   .nh-arrow { color: var(--wind); line-height: 0; transition: transform 0.7s cubic-bezier(0.22,0.68,0.18,1); }
   .nh-arrow svg { width: 22px; height: 22px; display: block; }
   .nh-dir { font-size: 10.5px; font-weight: 600; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.05em; margin-top: -2px; }
@@ -445,7 +446,7 @@ let activeKey = null;              // 'geo' or numeric index into places[]
 function buildAPI(lat, lon) {
   return `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`
     + `&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,cloud_cover,precipitation,is_day,wind_speed_10m,wind_gusts_10m,wind_direction_10m`
-    + `&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code,cloud_cover,precipitation,is_day`
+    + `&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code,cloud_cover,precipitation,is_day,temperature_2m`
     + `&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset`
     + `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto`
     + `&models=best_match&cell_selection=land`;   // highest-resolution model, nearest land cell matching elevation
@@ -976,6 +977,7 @@ function renderNext(rows) {
     return `<div class="nh-cell">
       <div class="nh-time">${hr}</div>
       <div class="nh-cond" style="color:${condColor(cond.cat, h.isDay)}" title="${cond.label}">${svgInner(cond.icon)}</div>
+      ${h.temp == null ? '' : `<div class="nh-temp">${h.temp}°</div>`}
       <div class="nh-arrow" style="transform:rotate(${h.deg + 180}deg)">${ARROW_SVG}</div>
       <div class="nh-dir">${dir(h.deg)}</div>
       <div class="nh-spd">${h.spd}<span class="u">mph</span></div>
@@ -1070,7 +1072,8 @@ async function loadWeather() {
         code: H.weather_code ? H.weather_code[i] : 0,
         cloud: H.cloud_cover ? H.cloud_cover[i] : 0,
         precip: H.precipitation ? H.precipitation[i] : 0,
-        isDay: H.is_day ? H.is_day[i] : 1
+        isDay: H.is_day ? H.is_day[i] : 1,
+        temp: H.temperature_2m ? r(H.temperature_2m[i]) : null
       });
     }
     renderNext(nextRows);
